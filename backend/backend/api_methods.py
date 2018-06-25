@@ -1,19 +1,14 @@
-from backend.database import get_cursor, aggregate_features, get_stops_for_route, populate_stops, base_url
-from backend.fixtures import create_dummy_prediction_fixtures as cdpf
+# from django.views.decorators.csrf import csrf_exempt
+# from backend.fixtures import create_dummy_prediction_fixtures as cdpf
+
+from backend.database import get_cursor, base_url
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
+
 import requests
 import ast
 import json
 
-
-
-def get_predictions_for_route(route="72"):
-
-    route_stops = get_stops_for_route(route=route)
-
-    # testing
-    print(len(route_stops))
+def get_route_delay(route_stops, route="72"):
 
     predictions = []
     delay_list = []
@@ -25,6 +20,7 @@ def get_predictions_for_route(route="72"):
         response = json.dumps(response)
         response = json.loads(response)
 
+        # isolates route specific predictions
         if type(response) is not dict:
             print("this is the response type-->", type(response))
             continue
@@ -38,26 +34,38 @@ def get_predictions_for_route(route="72"):
 
     return delay_list
 
-#@csrf_exempt
 def average_delay(delay_list):
-        # Im calling this 'delay' for now but what it's really recording is ontimeness
-        # To go from native dictionary to JSON, you have to dump to string then load to JSON
 
-        #for testing
-
+        # switched from JSON output to single number as there's no point to being a dictionary. This Will
+        # mean I have to change where the delay is inserted into the final JSON dict
 
         if len(delay_list) != 0:
             avg_delay = abs(sum(delay_list)/len(delay_list))
-            avg_delay_dict = json.dumps({"average_delay": avg_delay})
-            avg_delay_json = json.loads(avg_delay_dict)
-
             return avg_delay_json
 
         else:
-            return {"average_delay": None}
+            return None
 
-#@csrf_exempt
-def get_route_line(request, route=72):
+
+def get_stops_for_route(route):
+
+    base_url = "https://api.actransit.org/transit/{}/?token=369BB8F6542E51FF57BC06577AFE829C"
+    cur = get_cursor()
+
+    #get list of stops for route parameter
+    cur.execute("SELECT stopid FROM stoproutes WHERE routename='{}';".format(route))
+    print("SELECT stopid FROM stoproutes WHERE routename='{}';".format(route))
+    stop_ids_tuples = cur.fetchall()
+
+    # THERE HAS GOT TO BE  A BETTER WAY TO DO THIS
+    stop_ids = []
+    for stop_id in stop_ids_tuples:
+        stop_ids.append(stop_id[0])
+
+
+    return stop_ids
+
+def get_route_line(route=72):
         cur = get_cursor()
         cur.execute("SELECT ST_AsGeoJSON(geom :: geometry) FROM mar2512shape WHERE pub_rte='{}'".format(route))
         response = cur.fetchone()[0]

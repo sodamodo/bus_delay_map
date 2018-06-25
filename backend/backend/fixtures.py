@@ -47,3 +47,36 @@ def create_dummy_prediction_fixtures():
                 except TypeError:
                     print("this throws if you have exceeded your 150 reqs/min limit")
                     sleep(60)
+
+
+
+def populate_stops():
+
+    base_url = "https://api.actransit.org/transit/{}/?token=369BB8F6542E51FF57BC06577AFE829C"
+    cur = get_cursor()
+
+    # cur.execute("DROP TABLE IF EXISTS stops ;")
+
+    # Checks to see if it's been prefilled
+
+    cur.execute("SELECT to_regclass('public.stops')")
+    tableExists = cur.fetchone()
+    if tableExists[0] != "stops":
+        cur.execute("CREATE TABLE stops(stopId VARCHAR(5), name VARCHAR(100), geo GEOGRAPHY(POINT));")
+
+        print("stops table doesn't exist")
+        r = requests.get(base_url.format("stops"))
+        stops = json.loads(r.text)
+        for n in stops:
+            stop_id = str(n["StopId"])
+            name = n["Name"].replace("'","")
+            lat = n["Latitude"]
+            long = n["Longitude"]
+
+            insert_string = "INSERT INTO stops (stopID, name, geo) VALUES({stop_id}, '{name}', ST_SetSRID(ST_MakePoint({long}, {lat}), 4326))".format(stop_id=stop_id, name=name, long=long, lat=lat)
+
+            cur.execute(insert_string)
+            cur.execute("SELECT * FROM stops;")
+
+
+        print("stops populated")
