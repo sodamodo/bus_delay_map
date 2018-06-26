@@ -6,42 +6,45 @@
 
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
+
 from backend.api_methods import get_route_line, average_delay, get_stops_for_route, get_route_delay
+from backend.database import get_cursor
+
 import requests
 import ast
 import json
+import re
 
 
 
 @csrf_exempt
 def get_avg_delay_for_route(request):
 
-
-        ##############################################
-        # So I don't have to spend all day making calls
-        ##############################################
-        # with open("72_delay.txt", "r") as f:
-        #     response = json.loads(f.read())
-        #
-        #
-        #     return JsonResponse(response)
+        cur = get_cursor()
 
 
-        # Will receive route from POST from client
-        route = "72"
+        # SOOOOO HACKY LEARN HOW TO USE A COMPTUER
+        body_unicode = request.body.decode('utf-8')
+        print(body_unicode)
+        route = body_unicode[5:]
+        print("sliced route-->", route)
 
+
+
+        #### Gets the JSON for the line shape
         polyline_json = get_route_line(route)
 
 
-        delay_list = get_route_delay(route)
+        cur.execute("SELECT delay, route_name, datetime FROM delays WHERE route_name = '{}' ORDER BY datetime DESC LIMIT 1;".format(route))
+        delay = cur.fetchone()[0]
+
+        ###########################################################
+        ###########################################################
+        ###########################################################
 
 
-        avg_delay = average_delay(delay_list=delay_list)
-        print("type of avg delay--->", avg_delay)
-
-
-        with open('delay_list.txt', 'a+') as outfile:
-            outfile.write(str(avg_delay) + "\n")
+        # with open('delay_list.txt', 'a+') as outfile:
+        #     outfile.write(str(avg_delay) + "\n")
 
 
         geojson_template = {
@@ -59,11 +62,10 @@ def get_avg_delay_for_route(request):
 
         geojson_template["geometry"]["coordinates"] = polyline_json["coordinates"]
         geojson_template["properties"]["route"] = route
-        geojson_template["properties"]["delay"] = avg_delay
+        geojson_template["properties"]["delay"] = delay
 
         geojson = geojson_template
 
-        print(geojson)
 
         with open('72_delay.txt', 'w') as outfile:
             json.dump(geojson, outfile)

@@ -3,7 +3,7 @@ import json
 import requests
 from time import sleep
 
-from backend.database import get_cursor, aggregate_features, get_stops_for_route, populate_stops, base_url
+from backend.database import get_cursor, base_url
 
 
 def create_dummy_prediction_fixtures():
